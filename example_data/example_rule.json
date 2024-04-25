@@ -1,0 +1,29 @@
+{   
+    "@id": "go_fetch",
+    "@type": "SoftwareApplication",
+    "url": "https://workflowhub.eu/workflows/791/git/1/download/workflow/rules/go_fetch.smk"
+    "softwareRequirements": [
+        {"@id": "go_fetch_getorganelle"},
+        {"@id": "go_fetch_trf"},
+        {"@id": "go_fetch_biopython"}
+    ],
+},
+{   
+    "@id": "go_fetch_getorganelle",
+    "@type": "SoftwareApplication",
+    "url": "https://anaconda.org/bioconda/getorganelle",
+    "name": "getorganelle",
+    "version": "1.7.7.0"
+},
+{
+    "@id": "go_fetch_trf"
+    "@type": "SoftwareApplication",
+    "url": "https://anaconda.org/bioconda/trf",
+    "name": "trf"
+},
+{
+    "@id": "go_fetch_biopython",
+    "@type": "SoftwareApplication",
+    "url": "https://anaconda.org/conda-forge/biopython",
+    "name": "biopython"
+}
