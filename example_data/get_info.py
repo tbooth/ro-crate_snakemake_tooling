@@ -1,5 +1,6 @@
 from bs4 import BeautifulSoup
 import json
+import re
 
 # Read HTML content from file
 with open("report.html", "r") as file:
@@ -35,6 +36,10 @@ else:
     print("No script tag with id='rules' found in the HTML.")
 
 if go_fetch_rule:
+    # List channels 
+    channels = go_fetch_rule.get('conda_env', {}).get('channels', [])
+    print("Channels:", channels)
+    
     # List dependencies
     dependencies = go_fetch_rule.get('conda_env', {}).get('dependencies', [])
     print("Dependencies:", dependencies)
