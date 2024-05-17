@@ -23,37 +23,36 @@ if script_tag:
         # Parse the JSON content
         rules_data = json.loads(json_content)
 
-        # Extract the "go_fetch" rule entry
-        go_fetch_rule = rules_data.get("go_fetch")
+        # Create a list to store rule details
+        rules_list = []
 
-        if go_fetch_rule:
-            print(go_fetch_rule)
-        else:
-            print("No 'go_fetch' rule found.")
+        # Iterate over each rule and append its details to the list
+        for rule_name, rule_data in rules_data.items():
+            # Separate software name and version from dependencies
+            dependencies = rule_data.get('conda_env', {}).get('dependencies', [])
+            dependencies_split = []
+            for dep in dependencies:
+                if isinstance(dep, str):
+                    if '=' in dep:
+                        software, version = [ dep.split('=')[i] for i in [0,1]]
+                        dependencies_split.append({"software": software.strip(), "version": version.strip()})
+                    else:
+                        dependencies_split.append({"software": dep.strip(), "version": None})
+
+            rule_details = {
+                "Rule": rule_name,
+                "Channels": rule_data.get('conda_env', {}).get('channels', []),
+                "Dependencies": dependencies_split,
+                "Inputs": rule_data.get('input', []),
+                "Outputs": rule_data.get('output', []),
+                "n_jobs": rule_data.get('n_jobs', None)
+            }
+            rules_list.append(rule_details)
+        # Convert the list of rule details to JSON format
+        json_output = json.dumps(rules_list, indent=2)
+        print(json_output)
+
     except json.JSONDecodeError as e:
         print("Error decoding JSON:", e)
 else:
     print("No script tag with id='rules' found in the HTML.")
-
-if go_fetch_rule:
-    # List channels 
-    channels = go_fetch_rule.get('conda_env', {}).get('channels', [])
-    print("Channels:", channels)
-    
-    # List dependencies
-    dependencies = go_fetch_rule.get('conda_env', {}).get('dependencies', [])
-    print("Dependencies:", dependencies)
-
-    # List inputs
-    inputs = go_fetch_rule.get('input', [])
-    print("Inputs:", inputs)
-
-    # List outputs
-    outputs = go_fetch_rule.get('output', [])
-    print("Outputs:", outputs)
-
-    # Print n_jobs
-    n_jobs = go_fetch_rule.get('n_jobs', None)
-    print("n_jobs:", n_jobs)
-else:
-    print("No 'go_fetch' rule found.")
