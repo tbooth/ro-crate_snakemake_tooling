@@ -1,0 +1,17 @@
+[build-system]
+requires = [ "poetry-core",]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "snakemake-report-plugin-wrroc"
+version = "0.1.0"
+description = ""
+authors = [ "fbartusch <felix.bartusch@uni-tuebingen.de>",]
+readme = "README.md"
+repository = "https://github.com/your/plugin"
+documentation = "https://snakemake.github.io/snakemake-plugin-catalog/plugins/report/wrroc.html"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+snakemake-interface-common = "^1.17.2"
+snakemake-interface-report-plugins = "^1.0.0"
