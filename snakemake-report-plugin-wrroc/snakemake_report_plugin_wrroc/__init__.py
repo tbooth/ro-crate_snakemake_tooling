@@ -1,10 +1,14 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
+import snakemake
+
 from snakemake_interface_common.exceptions import WorkflowError  # noqa: F401
 from snakemake_interface_report_plugins.reporter import ReporterBase
 from snakemake_interface_report_plugins.settings import ReportSettingsBase
 
+from rocrate.rocrate import ROCrate
+from rocrate.model import SoftwareApplication
 
 # Optional:
 # Define additional settings for your reporter.
@@ -49,15 +53,28 @@ class Reporter(ReporterBase):
         # for attributes of the base class.
         # In particular, the settings of above ReportSettings class are accessible via
         # self.settings.
-        ...
+        self.outdir = "ro-crate_out"
+        self.excludelist = [".snakemake", ".git", ".github", ".test", ".gitignore"]
+        self.excludelist.append(self.outdir)
+        self.crate = ROCrate(source='./', exclude=self.excludelist)
 
     def render(self):
         # Render the report, using attributes of the base class.
         print("test")
+
+        # Workflow Run Crate Additions
+        for entity in self.crate.contextual_entities:
+            if entity.type == 'ComputerLanguage' and 'snakemake' in entity.id.lower():
+                entity['version'] = snakemake.__version__.split("+")[0]
+
+        # Provenance Run Crate (individual step information)
 
         # print basic information (start/end) of each job
         for rec in self.jobs:
             print("rule: " + rec.rule)
             print("starttime: " + str(rec.starttime))
             print("endtime: " + str(rec.endtime))
+            print("ROCrate date published: " + str(self.crate.datePublished.date()))
+
+        self.crate.write(self.outdir)
 
