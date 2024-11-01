@@ -1,7 +1,16 @@
+"""RO-Crate exporter plugin for Snakemake.
+
+   Activate this reporter while running a test run of your workflwo to generate
+   ???.zip
+
+   Maybe at some point there will be an upload to WorkflowHub via the API included?
+"""
+
 from dataclasses import dataclass, field
 from typing import Optional
 
 import snakemake
+from snakemake.logging import logger
 import os
 
 from snakemake_interface_common.exceptions import WorkflowError  # noqa: F401
@@ -46,7 +55,7 @@ class ReportSettings(ReportSettingsBase):
 # Required:
 # Implementation of your reporter
 class Reporter(ReporterBase):
-    def __post_init__(self, excludelist = [".snakemake", ".git", ".github", ".test", ".gitignore"]):
+    def __post_init__(self, excludelist = (".snakemake", ".git", ".github", ".test", ".gitignore")):
         # initialize additional attributes
         # Do not overwrite the __init__ method as this is kept in control of the base
         # class in order to simplify the update process.
@@ -55,54 +64,63 @@ class Reporter(ReporterBase):
         # In particular, the settings of above ReportSettings class are accessible via
         # self.settings.
         self.outdir = "ro-crate_out"
-        self.excludelist = excludelist
+        self.excludelist = list(excludelist)
         self.excludelist.append(self.outdir)
-        # Load the existing Workflow RO-Crate
-        self.crate = ROCrate(source='./', exclude=self.excludelist)
+        # Load the existing Workflow RO-Crate...
+        try:
+            self.crate = ROCrate(source='./', exclude=self.excludelist)
+        except ValueError:
+            # ...or make a fresh one
+            self.crate = ROCrate(exclude=self.excludelist)
 
     def render(self):
-        # Render the report, using attributes of the base class.
+        """Generate the crate, using the ROCrate library.
+        """
+        crate = self.crate
 
         # Remove any publication date from the root dataset of the original RO-Crate
-        if 'datePublished' in self.crate.root_dataset:
-            self.crate.root_dataset.__delitem__('datePublished')
+        if 'datePublished' in crate.root_dataset:
+            crate.root_dataset.__delitem__('datePublished')
 
 
         # Provenance Crate - add snakemake version
-        for entity in self.crate.contextual_entities:
+        for entity in crate.contextual_entities:
             if entity.type == 'ComputerLanguage' and 'snakemake' in entity.id.lower():
                 entity['version'] = snakemake.__version__.split("+")[0]
-        
+
         # Provenance Crate - record execution of workflow as a CreateAction object
         instruments = {}
-        for entity in self.crate.data_entities:
+        for entity in crate.data_entities:
             if 'ComputationalWorkflow' in entity.type:
                 instruments["@id"] = entity.id
         workflow_run_properties = {
-            #"@id":"FIXME-a",
+            #"@id":"FIXME-add-workflow-run-properties-id",
             "@type":"CreateAction",
             "name":"Snakemake workflow run (FIXME)",
             "endTime":"FIXME date",
-            "instrument":instruments,
+            #"instrument":instruments,
             #"subjectOf":{"@id":"FIXME creative work (workflow?)"},
             "object":["FIXME inputs"],
             "result":["FIXME outputs"]
         }
-        print(workflow_run_properties)
-        workflow_run = self.crate.add(
-            ContextEntity(self.crate, properties=workflow_run_properties)
+        if '@id' in instruments:
+            workflow_run_properties['instruments'] = instruments
+        logger.info(workflow_run_properties)
+        import pdb ; pdb.set_trace()
+        workflow_run = crate.add(
+            ContextEntity(crate, properties=workflow_run_properties)
         )
 
         # Provenance Run Crate (individual step information)
 
         # print basic information (start/end) of each job
         for rulename, rule  in self.rules.items():
-            print(f"rule: {rulename}")
+            logger.info(f"rule: {rulename}")
             #print(rule)
             #print("rule: " + rec.rule)
             #print("starttime: " + str(rec.starttime))
             #print("endtime: " + str(rec.endtime))
-            #print("ROCrate date published: " + str(self.crate.datePublished.date()))
+            #print("ROCrate date published: " + str(crate.datePublished.date()))
 
         # Add Person running workflow (agent)
         person_properties = {
@@ -111,25 +129,24 @@ class Reporter(ReporterBase):
             "familyName": "FIXME",
             "affiliation": "FIXME"
         }
-        agent = self.crate.add(Person(self.crate,
-                                      "FIXME-ORCID?",
-                                      properties=person_properties))
+        agent = crate.add(Person(crate,
+                                 "FIXME-ORCID?",
+                                 properties=person_properties))
         workflow_run.append_to( "agent", [agent] )
-        
-        
+
         # Reference CreateAction in the root Dataset
-        self.crate.root_dataset.append_to(
+        crate.root_dataset.append_to(
             "mentions" , [{"@id": workflow_run.id}]
         )
-        
+
         # Set the conformsTo statement for the root Dataset.
         # Note that this will replace any pre-existing conformsTo information
-        self.crate.root_dataset["conformsTo"] = [
+        crate.root_dataset["conformsTo"] = [
                     {"@id": "https://w3id.org/ro/wfrun/process/0.1"},
                     {"@id": "https://w3id.org/ro/wfrun/workflow/0.5"},
                     {"@id": "https://w3id.org/workflowhub/workflow-ro-crate/1.0"}
                 ]
 
 
-        self.crate.write(self.outdir)
+        crate.write(self.outdir)
 
