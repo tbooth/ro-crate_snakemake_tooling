@@ -28,10 +28,10 @@ from rocrate.model import ContextEntity, Person
 # of None (or False) or anything else that makes sense in your case.
 @dataclass
 class ReportSettings(ReportSettingsBase):
-    myparam: Optional[int] = field(
+    exclude: Optional[str] = field(
         default=None,
         metadata={
-            "help": "Some help text",
+            "help": "Comma-separed list of files to exclude",
             # Optionally request that setting is also available for specification
             # via an environment variable. The variable will be named automatically as
             # SNAKEMAKE_REPORT_<reporter-name>_<param-name>, all upper case.
@@ -66,6 +66,10 @@ class Reporter(ReporterBase):
         self.outdir = "ro-crate_out"
         self.excludelist = list(excludelist)
         self.excludelist.append(self.outdir)
+
+        # Add any exclude items specified by the user
+        self.excludelist.extend(self.settings.exclude.split(','))
+
         # Load the existing Workflow RO-Crate...
         try:
             self.crate = ROCrate(source='./', exclude=self.excludelist)
@@ -76,6 +80,8 @@ class Reporter(ReporterBase):
     def render(self):
         """Generate the crate, using the ROCrate library.
         """
+        logger.info(f"Excludelist: {self.excludelist}")
+
         crate = self.crate
 
         # Remove any publication date from the root dataset of the original RO-Crate
@@ -106,7 +112,6 @@ class Reporter(ReporterBase):
         if '@id' in instruments:
             workflow_run_properties['instruments'] = instruments
         logger.info(workflow_run_properties)
-        import pdb ; pdb.set_trace()
         workflow_run = crate.add(
             ContextEntity(crate, properties=workflow_run_properties)
         )
