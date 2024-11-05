@@ -8,6 +8,7 @@ __pycache__
 .coverage
 
 tmp/
+dist/
 .snakemake
 _*_venv*/
 doc/*.ps
