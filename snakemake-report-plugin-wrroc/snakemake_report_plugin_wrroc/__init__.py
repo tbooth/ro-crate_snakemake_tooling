@@ -68,7 +68,10 @@ class Reporter(ReporterBase):
         self.excludelist.append(self.outdir)
 
         # Add any exclude items specified by the user
-        self.excludelist.extend(self.settings.exclude.split(','))
+        self.excludelist.extend(self.settings.exclude.split(',') if self.settings.exclude else [])
+
+        # Decide if we are in dry-run mode. Oh, apparently the reporter always runs off
+        # --dry-run mode. Right.
 
         # Load the existing Workflow RO-Crate...
         try:
@@ -76,6 +79,7 @@ class Reporter(ReporterBase):
         except ValueError:
             # ...or make a fresh one
             self.crate = ROCrate(exclude=self.excludelist)
+            self.crate.add_directory(".")
 
     def render(self):
         """Generate the crate, using the ROCrate library.
@@ -88,6 +92,10 @@ class Reporter(ReporterBase):
         if 'datePublished' in crate.root_dataset:
             crate.root_dataset.__delitem__('datePublished')
 
+        # Ensure that some expected files are found. The rocrate module does
+        # not scan the files until the crate is exported, so we have to look for the
+        # files here.
+        import pdb ; pdb.set_trace()
 
         # Provenance Crate - add snakemake version
         for entity in crate.contextual_entities:
@@ -154,4 +162,4 @@ class Reporter(ReporterBase):
 
 
         crate.write(self.outdir)
-
+        crate.write_zip(self.outdir + ".zip")
