@@ -12,6 +12,7 @@ from typing import Optional
 import snakemake
 from snakemake.logging import logger
 import os
+from subprocess import run, CalledProcessError
 
 from snakemake_interface_common.exceptions import WorkflowError  # noqa: F401
 from snakemake_interface_report_plugins.reporter import ReporterBase
@@ -51,6 +52,15 @@ class ReportSettings(ReportSettingsBase):
         },
     )
 
+    force: bool = field(
+        default=False,
+        metadata={
+            "help": "Continue even if there are non-conformities.",
+            "env_var": False,
+            "required": False,
+        },
+    )
+
 # Required:
 # Implementation of your reporter
 class Reporter(ReporterBase):
@@ -69,6 +79,8 @@ class Reporter(ReporterBase):
         # Add any exclude items specified by the user
         if self.settings.exclude:
             self.excludelist.extend(self.settings.exclude.split(','))
+
+        self.conformance_force = self.settings.force
 
         # Decide if we are in dry-run mode. Oh, apparently the reporter always runs off
         # --dry-run mode. Right.
@@ -176,7 +188,11 @@ class Reporter(ReporterBase):
         if essential_problems:
             for prob in essential_problems:
                 logger.error(f"Conformance error: {prob}")
-            raise RuntimeError(str(f"Exiting due to {len(essential_problems)} conformance issues."))
+            msg = f"Exiting due to {len(essential_problems)} conformance issues."
+            if self.conformance_force:
+                logger.warning(f"Continuing despite {len(essential_problems)} conformance issues.")
+            else:
+                raise RuntimeError(f"Exiting due to {len(essential_problems)} conformance issues.")
 
         desirable_problems = self.check_desirable_files()
         if desirable_problems:
@@ -184,11 +200,35 @@ class Reporter(ReporterBase):
                 logger.warning(f"Conformance warning: {prob}")
             logger.warning(f"Continuing despite len(desirable_problems) warnings.")
 
-        # images/rulegraph.svg should be something we can generate here. If we can't do things
-        # like this, what is the point of the plugin?
+        # images/rulegraph.svg should be something we can auto-generate. self.dag has methods dot()
+        # and rule_dot() which can make the graph for us, but it still needs converting to SVG.
         if not os.path.exists("image/rulegraph.svg"):
-            pass
-            # TODO - call the code that plots the rulegraph and convert to SVG
+
+            logger.warning("Auto generating 'image/rulegraph.svg'")
+            try:
+                os.makedirs("image", exist_ok=True)
+                with open("image/rulegraph.dot", "x") as dotfh:
+                    print(self.dag.rule_dot(), file=dotfh)
+            except FileExistsError:
+                # Never mind, use the one we have. Maybe the user edited it.
+                logger.info("Using existing 'image/rulegraph.dot'")
+
+            # For converting .dot to .svg I don't see a better way than calling the graphviz
+            # program directly.
+            try:
+                run(['dot', '-Tsvg', 'image/rulegraph.dot', '-o', 'image/rulegraph.svg'],
+                     check = True,
+                     capture_output = True,
+                     text = True)
+            except CalledProcessError as e:
+                logger.error(str(e.stderr).rstrip())
+                logger.error("The 'dot' program returned the above error attempting to convert the rulegraph.")
+            except FileNotFoundError as e:
+                logger.error(str(e))
+                logger.error("The 'dot' program was not found. Unable to auto-convert the rulegraph.")
+
+
+
 
     def render(self):
         try:
