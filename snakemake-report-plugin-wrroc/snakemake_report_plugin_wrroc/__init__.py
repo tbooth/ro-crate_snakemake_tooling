@@ -113,12 +113,12 @@ class Reporter(ReporterBase):
             errors.append("Add a README.md file to introduce your worflow.")
 
         # The main workflow should be called "workflow/Snakefile"
-        # And we should be able to introspect what was run
-        if self.dag.workflow.snakefile != "workflow/Snakefile":
+        main_snakefile = os.path.relpath(self.dag.workflow.main_snakefile)
+        if main_snakefile != "workflow/Snakefile":
             # FIXME - this is returning nonsense in Snakemake 8. Does the regular html
             # reporter get a meaningful value? Nope.
             errors.append("Your main Snakefile needs to be called 'workflow/Snakefile'."
-                          f" Please rename {self.dag.workflow.snakefile}.")
+                          f" Please rename {main_snakefile}.")
 
         # And we want a config.yaml file.
         if not os.path.exists("config/config.yaml"):
@@ -130,7 +130,12 @@ class Reporter(ReporterBase):
                 errors.append("Please supply a default/sample configuration file for the workflow"
                               " under 'config/config.yaml'.")
 
-        # WFH wants a "CITATION.cff"
+        # GitHub wants a "CITATION.cff"
+        # It looks like we should be able to pull the info from this into the metadata -
+        # see https://www.researchobject.org/ro-crate/specification/1.1/contextual-entities.html#publications-via-citation-property
+        # but I'm not sure how useful this is or where that code would live. Given that the
+        # cffconvert tool (and library) already supports CFF to schema.org conversion I'd imagine
+        # this is already done in other tools.
         if not os.path.exists("CITATION.cff"):
             errors.append("You must include a 'CITATION.cff' file. If you are not requesting a"
                           " specific citation for use of the workflow, please <link instrux here"
@@ -171,7 +176,7 @@ class Reporter(ReporterBase):
         if essential_problems:
             for prob in essential_problems:
                 logger.error(f"Conformance error: {prob}")
-            raise RuntimeError(str(f"Exiting due to len(essential_problems) conformance issues."))
+            raise RuntimeError(str(f"Exiting due to {len(essential_problems)} conformance issues."))
 
         desirable_problems = self.check_desirable_files()
         if desirable_problems:
